@@ -1,11 +1,11 @@
 // research/probe-is-reasoning-quality.mjs
 // 对比 is_reasoning true/false 在复杂问题上的质量与耗时差异。
-import { createSignerSession, DEFAULT_ENDPOINT } from '../lib/signer-session.js';
-import { loadCredentials } from '../lib/credentials.js';
+import { createSignerSession } from '../../lib/signer-session.js';
+import { resolveGatewayEndpoint } from '../../lib/endpoint.js';
+import { getValidCredential } from '../../lib/credentials-seam.js';
+const credential = await getValidCredential();
 
-const cred = await loadCredentials();
-const credential = cred.credentials ?? cred;
-const session = await createSignerSession({ credential, endpoint: DEFAULT_ENDPOINT });
+const session = await createSignerSession({ credential, endpoint: resolveGatewayEndpoint(credential) });
 
 function buildBody(text, isReasoning) {
   const requestId = globalThis.crypto.randomUUID();

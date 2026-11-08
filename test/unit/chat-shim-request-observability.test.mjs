@@ -42,6 +42,23 @@ async function waitForNewRows(afterCount, timeoutMs = 3000) {
   return rows.slice(afterCount);
 }
 
+/**
+ * 等待直到谓词为真或超时。request-in 写盘后，终止行（reject/request-end）
+ * 要等连接拆除事件传播到 server 端才落盘——waitForNewRows 见到第一行新数据
+ * 就返回，会与终止行写盘形成竞态（实测约 5% 概率先到 request-in）。
+ */
+async function waitForRows(afterCount, predicate, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let rows = await readTrace();
+  while (Date.now() < deadline && !predicate(rows.slice(afterCount))) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    rows = await readTrace();
+  }
+  const fresh = rows.slice(afterCount);
+  assert.ok(predicate(fresh), `predicate not satisfied after ${timeoutMs}ms: ${JSON.stringify(fresh)}`);
+  return fresh;
+}
+
 async function startShim(t) {
   // 上游对多数用例不会被触碰（都在写上游之前返回）；给一个立刻返回错误状态
   // 的哑上游，保证「走漏到上游」在用例里也是可观察的。
@@ -162,7 +179,10 @@ test('a client that hangs up mid-upload leaves a terminal record with the stage'
     }, 120);
   });
 
-  const rows = await waitForNewRows(before);
+  const rows = await waitForRows(
+    before,
+    (fresh) => fresh.some((row) => row.event === 'reject' || row.event === 'request-end'),
+  );
   const terminal = rows.filter((row) => row.event === 'reject' || row.event === 'request-end');
   assert.equal(terminal.length, 1, JSON.stringify(rows));
   const last = terminal[0];

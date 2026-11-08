@@ -1,15 +1,16 @@
 // research/probe-is-reasoning.mjs
 // 对照实验：is_reasoning 显式设置 vs 不设置，对输出（思考链/正文比例）的影响。
 // 只读探针：每个变体发 1 次真实请求。
-import { createSignerSession, DEFAULT_ENDPOINT } from '../lib/signer-session.js';
-import { loadCredentials } from '../lib/credentials.js';
+import { createSignerSession } from '../../lib/signer-session.js';
+import { resolveGatewayEndpoint, relaxTlsForVpc } from '../../lib/endpoint.js';
+import { getValidCredential } from '../../lib/credentials-seam.js';
+const cred = await getValidCredential();
+const credential = cred;
 
-const cred = await loadCredentials();
-const credential = cred.credentials ?? cred;
 
 const session = await createSignerSession({
   credential,
-  endpoint: DEFAULT_ENDPOINT,
+  endpoint: resolveGatewayEndpoint(credential),
 });
 
 /** 构造 body；variant 决定是否设置 is_reasoning */
